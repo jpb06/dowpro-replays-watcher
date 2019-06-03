@@ -11,11 +11,15 @@ namespace tests.Helpers
 {
     public static class ResultFileHelper
     {
-        public static GameResult Parse(string soulstormInstallPath)
+        public static GameResult Parse()
         {
             Lua lua = new Lua();
 
-            object[] luaResult = lua.DoFile(Path.Combine(soulstormInstallPath, "Profiles", FileHelper.GetPlayerProfile(soulstormInstallPath), "testStats.Lua"));
+            object[] luaResult = lua.DoFile(Path.Combine(
+                Constants.SoulstormInstallPath, 
+                "Profiles", 
+                FileHelper.GetPlayerProfile(), 
+                "testStats.Lua"));
 
             LuaTable gsGameStatsTable = lua.GetTable("GSGameStats");
 

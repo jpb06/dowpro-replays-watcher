@@ -56,14 +56,27 @@ namespace tests.Helpers
                 if (lastWrittenFile.Length != tempRec.Length)
                     return false;
 
-                using (FileStream fs1 = lastWrittenFile.OpenRead())
-                using (FileStream fs2 = tempRec.OpenRead())
+                try
                 {
-                    for (int i = 0; i < tempRec.Length; i++)
+                    using (FileStream fs1 = new FileStream(lastWrittenFile.FullName, FileMode.Open,
+                                  FileAccess.Read, FileShare.ReadWrite))
+                    using (FileStream fs2 = new FileStream(tempRec.FullName, FileMode.Open,
+                                  FileAccess.Read, FileShare.ReadWrite))
                     {
-                        if (fs1.ReadByte() != fs2.ReadByte())
-                            return false;
+                        for (int i = 0; i < tempRec.Length; i++)
+                        {
+                            if (fs1.ReadByte() != fs2.ReadByte())
+                                return false;
+                        }
+
+                        fs1.Close();
+                        fs2.Close();
                     }
+                }
+                catch (Exception)
+                {
+                    // in case files are already opened somehow
+                    return true;
                 }
 
                 return true;
@@ -74,9 +87,9 @@ namespace tests.Helpers
             }
         }
 
-        public static string GetPlayerProfile(string soulstormInstallPath)
+        public static string GetPlayerProfile()
         {
-            string playerProfileLine = File.ReadAllLines(Path.Combine(soulstormInstallPath, "Local.ini"))
+            string playerProfileLine = File.ReadAllLines(Path.Combine(Constants.SoulstormInstallPath, "Local.ini"))
                 .Where(el => el.StartsWith("playerprofile="))
                 .FirstOrDefault();
 
@@ -92,9 +105,9 @@ namespace tests.Helpers
             File.WriteAllText(destinationPath, json);
         }
 
-        public static void CreateStructure(string soulstormInstallPath)
+        public static void CreateStructure()
         {
-            string path = Path.Combine(soulstormInstallPath, "ReplaysWatcher");
+            string path = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher");
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
         }
@@ -103,6 +116,13 @@ namespace tests.Helpers
         {
             if (File.Exists(path))
                 File.Delete(path);
+        }
+
+        public static string GetPlayerName()
+        {
+            string filePath = Path.Combine(Constants.SoulstormInstallPath, "Profiles", FileHelper.GetPlayerProfile(Constants.SoulstormInstallPath), "name.dat");
+            string name = File.ReadAllText(filePath);
+            return name;
         }
     }
 }

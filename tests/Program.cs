@@ -1,10 +1,7 @@
-﻿using LuaInterface;
-using Microsoft.Win32;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using tests.Helpers;
 using tests.Types;
@@ -14,20 +11,16 @@ namespace tests
     class Program
     {
         private static bool isSoulstormRunning = false;
-        private static string soulstormInstallPath = RegistryHelper.GetSoulstormInstallPath();
-
-        private static string playBackPath = Path.Combine(soulstormInstallPath, "Playback");
-        private static string tempRecPath = Path.Combine(soulstormInstallPath, "Playback", "temp.rec");
 
         static void Main(string[] args)
         {
-            FileHelper.CreateStructure(soulstormInstallPath);
+            FileHelper.CreateStructure();
 
             while (true)
             {
                 isSoulstormRunning = ProcessHelper.IsProcessRunning("Soulstorm");
                 CheckPlayback();
-                Thread.Sleep(10000);
+                Thread.Sleep(60000);
             }
 
         }
@@ -36,40 +29,57 @@ namespace tests
         {
             while (isSoulstormRunning)
             {
-                if (File.Exists(tempRecPath))
+                if (File.Exists(Constants.TempRecPath))
                 {
-                    bool isOpened = FileHelper.IsOpened(tempRecPath);
+                    bool isOpened = FileHelper.IsOpened(Constants.TempRecPath);
                     if (!isOpened)
                     {
-                        if (!FileHelper.IsAlreadySaved(playBackPath))
+                        if (!FileHelper.IsAlreadySaved(Constants.PlayBackPath))
                         {
-                            string savedFileName = $"{ReplayParser.GetMapName(tempRecPath)}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
-                            string savedFilePath = Path.Combine(playBackPath, savedFileName);
-                            File.Copy(tempRecPath, savedFilePath);
+                            string savedFileName = $"{ReplayParser.GetMapName(Constants.TempRecPath)}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
+                            string savedFilePath = Path.Combine(Constants.PlayBackPath, savedFileName);
+                            File.Copy(Constants.TempRecPath, savedFilePath);
 
-                            GameResult result = ResultFileHelper.Parse(soulstormInstallPath);
-                            string jsonPath = Path.Combine(soulstormInstallPath, "ReplaysWatcher", "result.json");
-                            FileHelper.SaveAsJson(jsonPath, result);
+                            GameResult result = ResultFileHelper.Parse();
 
-                            string archivePath = Path.Combine(soulstormInstallPath, "ReplaysWatcher", "arc.zip");
-
-                            FileHelper.DeleteIfExists(archivePath);
-
-                            ArchiveHelper.CreateZipFile(archivePath, new List<string>()
+                            // verify if we should send
+                            string playerName = FileHelper.GetPlayerName();
+                            if (result.Players
+                                .Where(el => el.IsHuman)
+                                .Where(el => el.IsAmongWinners)
+                                .Where(el => el.Name == playerName).Any())
                             {
-                                savedFilePath,
-                                jsonPath
-                            });
+                                // only winners send results
 
-                            // Send
+                                // should prob check if result and replay match
 
-                            FileHelper.DeleteIfExists(archivePath);
-                            FileHelper.DeleteIfExists(jsonPath);
+                                string jsonPath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "result.json");
+                                FileHelper.SaveAsJson(jsonPath, result);
+
+                                string archivePath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "arc.zip");
+
+                                FileHelper.DeleteIfExists(archivePath);
+
+                                ArchiveHelper.CreateZipFile(archivePath, new List<string>()
+                                {
+                                    savedFilePath,
+                                    jsonPath
+                                });
+
+                                // Send
+
+                                FileHelper.DeleteIfExists(archivePath);
+                                FileHelper.DeleteIfExists(jsonPath);
+                            }
+                        }
+                        else
+                        {
+                            Thread.Sleep(10000);
                         }
                     }
                     else
                     {
-                        Thread.Sleep(10000);
+                        Thread.Sleep(30000);
                     }
                 }
             }
