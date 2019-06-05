@@ -120,7 +120,7 @@ namespace tests.Helpers
 
         public static string GetPlayerName()
         {
-            string filePath = Path.Combine(Constants.SoulstormInstallPath, "Profiles", FileHelper.GetPlayerProfile(Constants.SoulstormInstallPath), "name.dat");
+            string filePath = Path.Combine(Constants.SoulstormInstallPath, "Profiles", FileHelper.GetPlayerProfile(), "name.dat");
             string name = File.ReadAllText(filePath);
             return name;
         }

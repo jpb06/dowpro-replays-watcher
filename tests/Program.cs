@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading;
+using System.Threading.Tasks;
 using tests.Helpers;
 using tests.Types;
 
@@ -14,14 +17,51 @@ namespace tests
 
         static void Main(string[] args)
         {
-            FileHelper.CreateStructure();
+            string savedFileName = $"{ReplayParser.GetMapName(Constants.TempRecPath)}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
+            string savedFilePath = Path.Combine(Constants.PlayBackPath, savedFileName);
+            File.Copy(Constants.TempRecPath, savedFilePath);
 
-            while (true)
+            GameResult result = ResultFileHelper.Parse();
+            string jsonPath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "result.json");
+            FileHelper.SaveAsJson(jsonPath, result);
+
+            string archivePath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "arc.zip");
+
+            FileHelper.DeleteIfExists(archivePath);
+
+            ArchiveHelper.CreateZipFile(archivePath, new List<string>()
+                                {
+                                    savedFilePath,
+                                    jsonPath
+                                });
+
+            byte[] archiveData = File.ReadAllBytes(archivePath);
+
+            Task t = Task.Run(async () => 
             {
-                isSoulstormRunning = ProcessHelper.IsProcessRunning("Soulstorm");
-                CheckPlayback();
-                Thread.Sleep(60000);
-            }
+                using (HttpClient client = new HttpClient())
+                {
+                    var content = new MultipartFormDataContent();
+                    var archiveContent = new StreamContent(new MemoryStream(archiveData));
+                    archiveContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/zip");
+
+                    content.Add(archiveContent, "result", "result.zip");
+                    var response = await client.PostAsync("http://localhost:3000/api/sendResult", content);
+
+                    int a = 0;
+                }
+            });
+            t.Wait();
+
+
+            //FileHelper.CreateStructure();
+
+            //while (true)
+            //{
+            //    isSoulstormRunning = ProcessHelper.IsProcessRunning("Soulstorm");
+            //    CheckPlayback();
+            //    Thread.Sleep(60000);
+            //}
 
         }
 
