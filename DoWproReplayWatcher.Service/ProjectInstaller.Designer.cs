@@ -39,7 +39,10 @@
             // 
             // DoWproWatcherServiceInstaller
             // 
+            this.DoWproWatcherServiceInstaller.Description = "Saves and Sends replays to the DoWpro ladder";
+            this.DoWproWatcherServiceInstaller.DisplayName = "DoWpro Ladder Client";
             this.DoWproWatcherServiceInstaller.ServiceName = "DoWproWatcherService";
+            this.DoWproWatcherServiceInstaller.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             // 
             // ProjectInstaller
             // 

@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using System.ServiceProcess;
 using System.Threading;
+using System.Configuration;
 
 namespace DoWproReplayWatcher.Service
 {
@@ -34,6 +35,7 @@ namespace DoWproReplayWatcher.Service
 
         protected override void OnStart(string[] args)
         {
+            DoWproLadderApi.ApiUrl = ConfigurationManager.AppSettings["ApiUrl"];
             FileHelper.CreateStructure();
 
             this.loopThread = new Thread(CheckPlayback);
@@ -64,16 +66,33 @@ namespace DoWproReplayWatcher.Service
                     continue;
                 }
 
-                // Already saved
-                if (FileHelper.IsAlreadySaved(Constants.PlayBackPath))
+                // Couldn't parse rec file
+                RelicChunkyData replayData = ReplayParser.Fetch(Constants.TempRecPath);
+                if (replayData == null)
                 {
-                    Thread.Sleep(30000);
+                    Thread.Sleep(60000);
                     continue;
                 }
 
-                string savedFileName = $"{ReplayParser.GetMapName(Constants.TempRecPath)}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
+                // Not a dowpro game
+                if (replayData.ModName != "dowpro" && replayData.ModName != "dowprotest")
+                {
+                    Thread.Sleep(60000);
+                    continue;
+                }
+
+                string modVersion = FileHelper.GetVersion(replayData.ModName);
+                string savedFileName = $"{replayData.MapName}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
                 string savedFilePath = Path.Combine(Constants.PlayBackPath, savedFileName);
-                File.Copy(Constants.TempRecPath, savedFilePath);
+                FileHelper.CopyRelicChunkyFile(Constants.TempRecPath, savedFilePath, replayData);
+
+                // Already saved
+                if (FileHelper.IsAlreadySaved(Constants.PlayBackPath, savedFileName))
+                {
+                    File.Delete(savedFilePath);
+                    Thread.Sleep(30000);
+                    continue;
+                }
 
                 string resultFilePath = Path.Combine(
                    Constants.SoulstormInstallPath,
@@ -82,12 +101,15 @@ namespace DoWproReplayWatcher.Service
                    "testStats.Lua");
 
                 GameResult result = LuaParser.ParseGameResult(resultFilePath);
+                result.ModVersion = modVersion;
+                result.ModName = replayData.ModName;
 
                 // verify if we should send
 
                 // only winners send results
                 // only 1vs1 are sent
                 // only player vs player
+                // 3.30 minutes duration minimum
                 string playerName = FileHelper.GetPlayerName();
                 if (result != null
                 && result.TeamsCount == 2
@@ -99,7 +121,8 @@ namespace DoWproReplayWatcher.Service
                     .Where(el => el.IsHuman)
                     .Where(el => el.IsAmongWinners)
                     .Any()
-                && result.Players.All(el => el.IsHuman))
+                && result.Players.All(el => el.IsHuman)
+                && result.Duration >= 210) 
                 {
                     // should prob check if result and replay match
 
@@ -116,10 +139,28 @@ namespace DoWproReplayWatcher.Service
                         jsonPath
                     });
 
+                    string unsentLadderFileName = $"{replayData.MapName}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.ladder";
+                    string unsentLadderFilePath = Path.Combine(Constants.SoulstormInstallPath, "Playback", "Unsent Ladder Games", unsentLadderFileName);
+                    CryptoHelper.EncryptFile(
+                        archivePath,
+                        unsentLadderFilePath);
+
                     byte[] archiveData = File.ReadAllBytes(archivePath);
                     // Send
-                    var r = await DoWproLadderApi.SendResult(archiveData);
-                    this.eventLog.WriteEntry($"{DateTime.Now} - {savedFileName} : {r}");
+                    string uploadResult = await DoWproLadderApi.SendResult(archiveData);
+
+                    if (uploadResult == "Added"
+                    || uploadResult.StartsWith("Unable to unzip ")
+                    || uploadResult.StartsWith("Unable to locate replay file for ")
+                    || uploadResult.StartsWith("Unable to compute file hash for")
+                    || uploadResult.EndsWith("Already exists in db store")
+                    || uploadResult.StartsWith("Unable to parse game result for")
+                    || uploadResult.StartsWith("Results did not match for")
+                    || uploadResult.StartsWith("Invalid players count for")
+                    )
+                        File.Delete(unsentLadderFilePath);
+
+                    this.eventLog.WriteEntry($"{DateTime.Now} - {savedFileName} : {uploadResult}");
 
                     FileHelper.DeleteIfExists(archivePath);
                     FileHelper.DeleteIfExists(jsonPath);
