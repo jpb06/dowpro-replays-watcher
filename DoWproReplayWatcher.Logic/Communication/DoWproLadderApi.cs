@@ -3,49 +3,44 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace DoWproReplayWatcher.Logic.Communication
 {
     public class DoWproLadderApi
     {
+        public static string ApiUrl = string.Empty;
+
         public static async Task<string> SendResult(byte[] archiveData)
         {
-            const string url = 
-                "http://localhost:3001/api";
-            //"https://dowpro.cf/api";
-
             try
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    var content = new MultipartFormDataContent();
-                    var archiveContent = new StreamContent(new MemoryStream(archiveData));
-                    archiveContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/zip");
-
-                    var c = new FormUrlEncodedContent(new[]
+                    HttpResponseMessage authResponse = await client.PostAsync($"{ApiUrl}/login", new FormUrlEncodedContent(new[]
                     {
-                        new KeyValuePair<string, string>("login", "dowpro-replays-watcher-api-usr"),
-                        new KeyValuePair<string, string>("password", "6XHB9JXcr1511oV")
-                    });
-                    var res = await client.PostAsync($"{url}/login", c);
-                    var co = await res.Content.ReadAsStringAsync();
+                        new KeyValuePair<string, string>("login", LogicSettings.Default.ApiUserName),
+                        new KeyValuePair<string, string>("password", LogicSettings.Default.ApiPassword)
+                    }));
+                    string authResponseContent = await authResponse.Content.ReadAsStringAsync();
 
-                    AuthResult r = JsonConvert.DeserializeObject<AuthResult>(co);
+                    AuthResult authResult = JsonConvert.DeserializeObject<AuthResult>(authResponseContent);
 
-                    if (r.ExpirationDate == null && r.Token == null)
+                    if (authResult.ExpirationDate == null && authResult.Token == null)
                         return "Unable to login";
 
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", r.Token);
-                    content.Add(archiveContent, "arc", "arc.zip");
-                    var response = await client.PostAsync($"{url}/sendResult", content);
-                    var co2 = await response.Content.ReadAsStringAsync();
+                    MultipartFormDataContent content = new MultipartFormDataContent();
+                    StreamContent archiveContent = new StreamContent(new MemoryStream(archiveData));
+                    archiveContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/zip");
 
-                    return co2;
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResult.Token);
+                    content.Add(archiveContent, "arc", "arc.zip");
+                    HttpResponseMessage uploadResponse = await client.PostAsync($"{ApiUrl}/sendResult", content);
+                    string uploadResponseContent = await uploadResponse.Content.ReadAsStringAsync();
+
+                    return uploadResponseContent;
                 }
             }
             catch (Exception ex)
