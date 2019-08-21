@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("DoWproReplayWatcher.Service")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("DoWpro Ladder Client")]
+[assembly: AssemblyDescription("Saves and publishes DoWpro replays automatically")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("DoWproReplayWatcher.Service")]
+[assembly: AssemblyProduct("DoWpro Ladder Client")]
 [assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
