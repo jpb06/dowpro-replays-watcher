@@ -90,6 +90,4 @@ namespace DoWproReplayWatcher.Lua
             return subSet.Length;
         }
     }
-
-
 }
