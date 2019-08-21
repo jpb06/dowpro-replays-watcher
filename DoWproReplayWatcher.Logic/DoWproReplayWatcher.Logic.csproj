@@ -51,7 +51,14 @@
     <Compile Include="Extensions\LuaObjectExtensions.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
     <Compile Include="Helpers\ArchiveHelper.cs" />
+    <Compile Include="Helpers\CryptoHelper.cs" />
     <Compile Include="Helpers\FileHelper.cs" />
+    <Compile Include="LogicSettings.cs" />
+    <Compile Include="LogicSettings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>LogicSettings.settings</DependentUpon>
+    </Compile>
     <Compile Include="Lua\LuaObject.cs" />
     <Compile Include="Lua\LuaParser.cs" />
     <Compile Include="Helpers\ProcessHelper.cs" />
@@ -61,8 +68,14 @@
     <Compile Include="Types\AuthResult.cs" />
     <Compile Include="Types\GamePlayer.cs" />
     <Compile Include="Types\GameResult.cs" />
+    <Compile Include="Types\RelicChunkyData.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
+    <None Include="LogicSettings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>LogicSettings.Designer.cs</LastGenOutput>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
