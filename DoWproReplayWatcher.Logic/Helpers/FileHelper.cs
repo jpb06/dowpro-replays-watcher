@@ -1,4 +1,5 @@
-﻿using DoWproReplayWatcher.Logic.Types;
+﻿using DoWproReplayWatcher.Logic.Extensions;
+using DoWproReplayWatcher.Logic.Types;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -37,12 +38,12 @@ namespace DoWproReplayWatcher.Logic.Helpers
             return isFileOpened;
         }
 
-        public static bool IsAlreadySaved(string directoryPath)
+        public static bool IsAlreadySaved(
+            string directoryPath,
+            string fileToCheckName)
         {
             if (Directory.Exists(directoryPath))
             {
-
-
                 DirectoryInfo directory = new DirectoryInfo(directoryPath);
 
                 var files = directory
@@ -50,49 +51,29 @@ namespace DoWproReplayWatcher.Logic.Helpers
 
                 var tempFile = files.Where(el => el.Name == "temp.rec").FirstOrDefault();
                 if (tempFile == null)
-                    return false;
+                    return true; // we want process to sleep if temp.rec does not exist yet
 
-                var matchingSize = files.Where(el => el.Name != "temp.rec").Where(el => el.Length == tempFile.Length);
+                var fileToCheck = files.Where(el => el.Name == fileToCheckName).FirstOrDefault();
+                if (fileToCheck == null)
+                    return true; // we want process to sleep if target file does not exist yet
 
-                return matchingSize.Any();
+                var matchingSize = files
+                    .Where(el => el.Name != "temp.rec")
+                    .Where(el => el.Name != fileToCheckName)
+                    .Where(el => el.Length == fileToCheck.Length);
 
-                //FileInfo lastWrittenFile = directory
-                //    .GetFiles("*.rec")
-                //    .Where(f => f.Name != "temp.rec")
-                //    .OrderByDescending(f => f.LastWriteTime)
-                //    .FirstOrDefault();
+                if (!matchingSize.Any()) return false;
 
-                //if (lastWrittenFile == null) return false;
+                string fileToCheckHash = CryptoHelper.GetChecksum(Path.Combine(directoryPath, fileToCheckName));
 
-                //FileInfo tempRec = new FileInfo(Path.Combine(directoryPath, "temp.rec"));
+                foreach(var match in matchingSize)
+                {
+                    string hash = CryptoHelper.GetChecksum(match.FullName);
 
-                //if (lastWrittenFile.Length != tempRec.Length)
-                //    return false;
+                    if (hash == fileToCheckHash) return true;
+                }
 
-                //try
-                //{
-                //    using (FileStream fs1 = new FileStream(lastWrittenFile.FullName, FileMode.Open,
-                //                  FileAccess.Read, FileShare.ReadWrite))
-                //    using (FileStream fs2 = new FileStream(tempRec.FullName, FileMode.Open,
-                //                  FileAccess.Read, FileShare.ReadWrite))
-                //    {
-                //        for (int i = 0; i < tempRec.Length; i++)
-                //        {
-                //            if (fs1.ReadByte() != fs2.ReadByte())
-                //                return false;
-                //        }
-
-                //        fs1.Close();
-                //        fs2.Close();
-                //    }
-                //}
-                //catch (Exception)
-                //{
-                //    // in case files are already opened somehow
-                //    return true;
-                //}
-
-                //return true;
+                return false;
             }
             else
             {
@@ -120,9 +101,13 @@ namespace DoWproReplayWatcher.Logic.Helpers
 
         public static void CreateStructure()
         {
-            string path = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher");
-            if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
+            string replaysWatcherPath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher");
+            if (!Directory.Exists(replaysWatcherPath))
+                Directory.CreateDirectory(replaysWatcherPath);
+
+            string unsentFilesPath = Path.Combine(Constants.SoulstormInstallPath, "Playback", "Unsent Ladder Games");
+            if (!Directory.Exists(unsentFilesPath))
+                Directory.CreateDirectory(unsentFilesPath);
         }
 
         public static void DeleteIfExists(string path)
@@ -137,6 +122,58 @@ namespace DoWproReplayWatcher.Logic.Helpers
             string name = File.ReadAllText(filePath);
 
             return name;
+        }
+
+        public static string GetVersion(string modName)
+        {
+            string filePath = Path.Combine(Constants.SoulstormInstallPath, $"{modName}.module");
+
+            if (!File.Exists(filePath)) return string.Empty;
+
+            string[] moduleFileLines = File.ReadAllLines(filePath);
+
+            string versionLine = moduleFileLines
+                .Where(el => el.StartsWith("ModVersion"))
+                .DefaultIfEmpty(string.Empty)
+                .First()
+                .RemoveWhitespace();
+
+            return string.IsNullOrEmpty(versionLine) ? string.Empty : versionLine.Substring(versionLine.IndexOf("=") + 1);
+        }
+        
+        public static void CopyRelicChunkyFile(string sourceFilePath, string destinationPath, RelicChunkyData relicChunkyData)
+        {
+            var fileBytes = File.ReadAllBytes(sourceFilePath);
+
+            var beginning = fileBytes
+                .Take((int)relicChunkyData.HeaderLengthPosition);
+            var beforeDatabaseContent = fileBytes
+                .Skip((int)(relicChunkyData.HeaderLengthPosition + 4))
+                .Take((int)(relicChunkyData.DatabaseChunkLengthPosition - relicChunkyData.HeaderLengthPosition - 4));
+            var databaseContent = fileBytes
+                .Skip((int)relicChunkyData.DatabaseChunkLengthPosition + 4)
+                .Take(85);
+            var end = fileBytes
+                .Skip((int)relicChunkyData.ReplayNameValueEndPosition);
+
+            byte[] replayName = Encoding.Unicode.GetBytes(relicChunkyData.MapName);
+            byte[] replayNameLength = BitConverter.GetBytes(replayName.Length / 2);
+
+            int headerLength = relicChunkyData.HeaderLength - relicChunkyData.ReplayName.Length * 2 + replayName.Length;
+            byte[] headerLengthAsBytes = BitConverter.GetBytes(headerLength);
+            int databaseChunkLength = relicChunkyData.DatabaseChunkLength - relicChunkyData.ReplayName.Length * 2 + replayName.Length;
+            byte[] databaseChunkLengthAsBytes = BitConverter.GetBytes(databaseChunkLength);
+
+            IEnumerable<byte> alteredData = beginning
+                .Concat(headerLengthAsBytes)
+                .Concat(beforeDatabaseContent)
+                .Concat(databaseChunkLengthAsBytes)
+                .Concat(databaseContent)
+                .Concat(replayNameLength)
+                .Concat(replayName)
+                .Concat(end);
+
+            File.WriteAllBytes(destinationPath, alteredData.ToArray());
         }
     }
 }
