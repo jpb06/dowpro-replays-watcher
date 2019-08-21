@@ -14,6 +14,8 @@ namespace DoWproReplayWatcher.Logic.Types
         public int Duration { get; set; }
         public string MapName { get; set; }
         public List<GamePlayer> Players { get; set; }
+        public string ModName { get; set; }
+        public string ModVersion { get; set; }
 
         public GameResult()
         {
