@@ -1,4 +1,5 @@
 ﻿using DoWproReplayWatcher.Logic;
+using DoWproReplayWatcher.Logic.Application;
 using DoWproReplayWatcher.Logic.Communication;
 using DoWproReplayWatcher.Logic.Extensions;
 using DoWproReplayWatcher.Logic.Helpers;
@@ -102,9 +103,12 @@ namespace DoWproReplayWatcher.ManualTesting
 
             /////////////////////////////////////////////////////////////////////////////////////////
             ///
-            //FileHelper.CreateStructure();
-            //DoWproLadderApi.ApiUrl = "https://dowpro.cf/api";//ConfigurationManager.AppSettings["ApiUrl"];
-            //await CheckPlayback();
+            FileHelper.CreateStructure();
+            DoWproLadderApi.ApiUrl = "https://dowpro.cf/api";//ConfigurationManager.AppSettings["ApiUrl"];
+                                                             // Logger logger = new Logger();
+                                                             // await MainLogic.CheckPlayback(logger);
+
+            bool? afddf = FileHelper.IsCurrentFilePlayback();
 
             /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -191,130 +195,6 @@ namespace DoWproReplayWatcher.ManualTesting
             int a = 0;
         }
 
-        private static async Task CheckPlayback()
-        {
-            while (true)
-            {
-                // No temp.rec
-                if (!File.Exists(Constants.TempRecPath))
-                {
-                    Thread.Sleep(30000);
-                    continue;
-                }
-
-                // File is in use
-                bool isOpened = FileHelper.IsOpened(Constants.TempRecPath);
-                if (isOpened)
-                {
-                    Thread.Sleep(30000);
-                    continue;
-                }
-
-                // Couldn't parse rec file
-                RelicChunkyData replayData = ReplayParser.Fetch(Constants.TempRecPath);
-                if (replayData == null)
-                {
-                    Thread.Sleep(60000);
-                    continue;
-                }
-
-                // Not a dowpro game
-                if (replayData.ModName != "dowpro" && replayData.ModName != "dowprotest")
-                {
-                    Thread.Sleep(60000);
-                    continue;
-                }
-
-                string modVersion = FileHelper.GetVersion(replayData.ModName);
-                string savedFileName = $"{replayData.MapName}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.rec";
-                string savedFilePath = Path.Combine(Constants.PlayBackPath, savedFileName);
-                File.Copy(Constants.TempRecPath, savedFilePath);
-
-                // Already saved
-                if (FileHelper.IsAlreadySaved(Constants.PlayBackPath, savedFileName))
-                {
-                    File.Delete(savedFilePath);
-                    Thread.Sleep(30000);
-                    continue;
-                }
-
-                string resultFilePath = Path.Combine(
-                   Constants.SoulstormInstallPath,
-                   "Profiles",
-                   FileHelper.GetPlayerProfile(),
-                   "testStats.Lua");
-
-                GameResult result = LuaParser.ParseGameResult(resultFilePath);
-                result.ModVersion = modVersion;
-                result.ModName = replayData.ModName;
-
-                // verify if we should send
-
-                // only winners send results
-                // only 1vs1 are sent
-                // only player vs player
-                // 3.30 minutes duration minimum
-                string playerName = FileHelper.GetPlayerName();
-                if (result != null
-                && result.TeamsCount == 2
-                && result.PlayersCount == 2
-                && result.Players.Count == 2
-                && !string.IsNullOrEmpty(result.WinCondition)
-                && result.Players
-                    .Where(el => el.Name == playerName)
-                    .Where(el => el.IsHuman)
-                    .Where(el => el.IsAmongWinners)
-                    .Any()
-                && result.Players.All(el => el.IsHuman)
-                && result.Duration >= 210)
-                {
-                    // should prob check if result and replay match
-
-                    string jsonPath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "result.json");
-                    FileHelper.SaveAsJson(jsonPath, result);
-
-                    string archivePath = Path.Combine(Constants.SoulstormInstallPath, "ReplaysWatcher", "arc.zip");
-
-                    FileHelper.DeleteIfExists(archivePath);
-
-                    ArchiveHelper.CreateZipFile(archivePath, new List<string>()
-                    {
-                        savedFilePath,
-                        jsonPath
-                    });
-
-                    string unsentLadderFileName = $"{replayData.MapName}_{DateTime.UtcNow.ToString("MMddyyyy-HHmmss")}.ladder";
-                    string unsentLadderFilePath = Path.Combine(Constants.SoulstormInstallPath, "Playback", "Unsent Ladder Games", unsentLadderFileName);
-                    CryptoHelper.EncryptFile(
-                        archivePath,
-                        unsentLadderFilePath);
-
-                    byte[] archiveData = File.ReadAllBytes(archivePath);
-                    // Send
-                    string uploadResult = await DoWproLadderApi.SendResult(archiveData);
-
-                    if (uploadResult == "Added"
-                    || uploadResult.StartsWith("Unable to unzip ")
-                    || uploadResult.StartsWith("Unable to locate replay file for ")
-                    || uploadResult.StartsWith("Unable to compute file hash for")
-                    || uploadResult.EndsWith("Already exists in db store")
-                    || uploadResult.StartsWith("Unable to parse game result for")
-                    || uploadResult.StartsWith("Results did not match for")
-                    || uploadResult.StartsWith("Invalid players count for")
-                    )
-                        File.Delete(unsentLadderFilePath);
-
-                    Console.WriteLine($"{DateTime.Now} - {savedFileName} : {uploadResult}");
-
-                    FileHelper.DeleteIfExists(archivePath);
-                    FileHelper.DeleteIfExists(jsonPath);
-                }
-                else
-                {
-                    Console.WriteLine($"{DateTime.Now} - {savedFileName} : Invalid file");
-                    Thread.Sleep(30000);
-                }
-            }
-        }
+ 
     }
 }
