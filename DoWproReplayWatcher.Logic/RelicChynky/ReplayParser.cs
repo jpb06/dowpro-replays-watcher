@@ -74,8 +74,9 @@ namespace DoWproReplayWatcher.RelicChunky
                 }
 
                 if (string.IsNullOrEmpty(modName) || 
-                    string.IsNullOrEmpty(mapName) ||
-                    string.IsNullOrEmpty(replayName)) return null;
+                    string.IsNullOrEmpty(mapName) )
+                    //|| string.IsNullOrEmpty(replayName))
+                    return null;
 
                 return new RelicChunkyData
                 {
