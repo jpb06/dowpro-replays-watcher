@@ -175,5 +175,27 @@ namespace DoWproReplayWatcher.Logic.Helpers
 
             File.WriteAllBytes(destinationPath, alteredData.ToArray());
         }
+
+        public static bool? IsCurrentFilePlayback()
+        {
+            string filePath = Path.Combine(Constants.SoulstormInstallPath, "warnings.log");
+            if (!File.Exists(filePath)) return null;
+
+            List<string> appLines = File.ReadAllLines(filePath)
+                .Where(l => l.Contains("APP -- ")).ToList();
+
+            var lastGameEvents = appLines
+                .Skip(Math.Max(0, appLines.Count() - 3));
+
+            if (lastGameEvents.Count() != 3
+            || !lastGameEvents.Last().Contains("APP -- Game Stop")
+            || !lastGameEvents.ElementAt(1).Contains("APP -- Game Start"))
+                return null;
+
+            if (lastGameEvents.First().Contains("APP -- Game Playback"))
+                return true;
+
+            return false;
+        }
     }
 }
