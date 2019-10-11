@@ -46,6 +46,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Application\ILogger.cs" />
+    <Compile Include="Application\Logger.cs" />
     <Compile Include="Communication\DoWproLadderApi.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Extensions\LuaObjectExtensions.cs" />
@@ -63,6 +65,7 @@
     <Compile Include="Lua\LuaParser.cs" />
     <Compile Include="Helpers\ProcessHelper.cs" />
     <Compile Include="Helpers\RegistryHelper.cs" />
+    <Compile Include="Application\MainLogic.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RelicChynky\ReplayParser.cs" />
     <Compile Include="Types\AuthResult.cs" />
