@@ -34,12 +34,15 @@ namespace DoWproReplayWatcher.Logic.Application
                     continue;
                 }
 
-                bool? isCurrentFileDueToPlayback = FileHelper.IsCurrentFilePlayback();
-                if(isCurrentFileDueToPlayback == null)
+                bool isWarningsOpened = true;
+                while (isWarningsOpened)
                 {
-                    logger.WriteEntry($"{ DateTime.Now} - Unable to detect if the file is playback");
+                    isWarningsOpened = FileHelper.IsOpened(Path.Combine(Constants.SoulstormInstallPath, "warnings.log"));
+                    Thread.Sleep(5000);
                 }
-                else if (isCurrentFileDueToPlayback == true)
+
+                bool? isCurrentFileDueToPlayback = FileHelper.IsCurrentFilePlayback();
+                if (isCurrentFileDueToPlayback == true || isCurrentFileDueToPlayback == null)
                 {
                     Thread.Sleep(30000);
                     continue;
