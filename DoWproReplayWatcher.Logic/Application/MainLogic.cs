@@ -157,7 +157,6 @@ namespace DoWproReplayWatcher.Logic.Application
 
                     FileHelper.DeleteIfExists(archivePath);
                     FileHelper.DeleteIfExists(jsonPath);
-                    // FileHelper.DeleteIfExists(resultFilePath);
                 }
                 else
                 {
